@@ -46,10 +46,17 @@
         if (submitBtn) submitBtn.disabled = !!on;
       }
       function showError(msg) {
-        if (errorEl) errorEl.textContent = msg || 'Something went wrong.';
+        const m = msg || 'Something went wrong.';
+        if (errorEl) {
+          errorEl.textContent = m;
+          try { errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {}
+        }
+        try { alert(m); } catch {}
       }
       function showSuccess(msg) {
-        if (sentEl) { sentEl.textContent = msg || 'Your appointment request has been sent successfully.'; sentEl.style.display = ''; }
+        const m = msg || 'Your appointment request has been sent successfully.';
+        if (sentEl) { sentEl.textContent = m; sentEl.style.display = ''; try { sentEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch {} }
+        try { alert(m); } catch {}
       }
 
       // Reset UI state
