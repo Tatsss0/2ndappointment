@@ -273,9 +273,8 @@
       schedule.workingDays = Array.from(wdSet).sort();
     }
 
-    // Defaults
-    if (!schedule.startHour) schedule.startHour = '09:00';
-    if (!schedule.endHour) schedule.endHour = '17:00';
+    // Defaults: do NOT assign start/end hours by default —
+    // doctors without explicit availability should show no open slots.
     if (!schedule.slotMinutes) schedule.slotMinutes = 30;
 
     return schedule;
@@ -326,8 +325,8 @@
       const unique = Array.from(new Set(keys)).sort();
       if (unique.length) return unique;
     }
-    // Default to Monday-Friday when no explicit workingDays are provided
-    return [1, 2, 3, 4, 5];
+    // No default working days; if not defined, no availability.
+    return [];
   }
 
   function effectiveScheduleForDay(schedule, dayIndex) {
