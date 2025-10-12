@@ -493,8 +493,8 @@
     const mKey = `${doctorId}|${monthKey(first)}`;
     if (monthlyBookingsCache.has(mKey)) return monthlyBookingsCache.get(mKey);
 
+    // Query by startAt range only to avoid composite index requirement; filter by doctorId client-side
     const snap = await db.collection('appointments')
-      .where('doctorId', '==', doctorId)
       .where('startAt', '>=', firebase.firestore.Timestamp.fromDate(first))
       .where('startAt', '<=', firebase.firestore.Timestamp.fromDate(last))
       .get();
@@ -502,6 +502,7 @@
     const dayToSet = new Map();
     snap.forEach(d => {
       const v = d.data();
+      if (!v || v.doctorId !== doctorId) return;
       const ts = v && v.startAt && v.startAt.toDate ? v.startAt.toDate() : null;
       if (!ts) return;
       const dayKey = formatYMD(ts);
@@ -690,7 +691,7 @@
       col.innerHTML = `
         <article class="doctor-card h-100" data-doctor-id="${doc.id}">
           <figure class="doctor-media">
-            <img src="${doc.photoUrl || 'logo.png'}" class="img-fluid" alt="${doc.name}" loading="lazy">
+            <img src="${doc.photoUrl || 'logo.png'}" class="img-fluid" alt="${doc.name}" loading="lazy" onerror="this.onerror=null;this.src='logo.png';">
           </figure>
           <div class="doctor-content">
             <h3 class="doctor-name">${doc.name}</h3>
@@ -844,6 +845,22 @@
 
   async function fetchBookedForDay(doctorId, date) {
     try {
+      // Prefer cached month prefetch; if missing, perform a range query and filter client-side
+      if (!monthlyBookingsCache.has(`${doctorId}|${monthKey(date)}`)) {
+        const start = new Date(date); start.setHours(0,0,0,0);
+        const end = new Date(date); end.setHours(23,59,59,999);
+        const snap = await db.collection('appointments')
+          .where('startAt', '>=', firebase.firestore.Timestamp.fromDate(start))
+          .where('startAt', '<=', firebase.firestore.Timestamp.fromDate(end))
+          .get();
+        const set = new Set();
+        snap.forEach(doc => {
+          const v = doc.data();
+          if (!v || v.doctorId !== doctorId) return;
+          if (v.startAt && v.startAt.toDate) set.add(v.startAt.toDate().getTime());
+        });
+        return set;
+      }
       return await getBookedSetForDayFromCacheOrFetch(doctorId, date);
     } catch (e) {
       return new Set();
