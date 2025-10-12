@@ -326,7 +326,8 @@
       const unique = Array.from(new Set(keys)).sort();
       if (unique.length) return unique;
     }
-    return [];
+    // Default to Monday-Friday when no explicit workingDays are provided
+    return [1, 2, 3, 4, 5];
   }
 
   function effectiveScheduleForDay(schedule, dayIndex) {

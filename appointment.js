@@ -78,18 +78,10 @@
 
       const slotTS = firebase.firestore.Timestamp.fromDate(slotDate);
 
-      // Prevent double booking
-      const existing = await db.collection('appointments')
-        .where('doctorId', '==', doctorId)
-        .where('startAt', '==', slotTS)
-        .limit(1)
-        .get();
-      if (!existing.empty) {
-        alert('That time is already booked. Please choose another slot.');
-        return;
-      }
-
-      await db.collection('appointments').add({
+      // Deterministic document ID to prevent duplicates and avoid composite index needs
+      const docId = `${doctorId}_${slotDate.getTime()}`;
+      const apptRef = db.collection('appointments').doc(docId);
+      const appointmentData = {
         doctorId,
         doctorName: doctorName || '',
         patientId: user.uid,
@@ -97,10 +89,21 @@
         startAt: slotTS,
         status: 'pending',
         reason: reasonEl ? (reasonEl.value || '').trim() : '',
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      };
 
-      alert('Appointment request sent!');
+      try {
+        await db.runTransaction(async (tx) => {
+          const snap = await tx.get(apptRef);
+          if (snap.exists) {
+            throw new Error('That time is already booked. Please choose another slot.');
+          }
+          tx.set(apptRef, appointmentData);
+        });
+        alert('Appointment request sent!');
+      } catch (err) {
+        alert(err && err.message ? err.message : 'Failed to book appointment. Please try again.');
+      }
     });
   });
 })();
