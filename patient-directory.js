@@ -119,7 +119,7 @@
   }
 
   function parse12hRangeToHHMM(rangeStr) {
-    if (!rangeStr or typeof rangeStr !== 'string') return null;
+    if (!rangeStr || typeof rangeStr !== 'string') return null;
     const parts = rangeStr.split('-');
     if (parts.length !== 2) return null;
     const start = parse12hToHHMM(parts[0].trim());
@@ -253,7 +253,7 @@
         } else if (val && typeof val === 'object') {
           start = coerceHHMM(val.start || val.startHour);
           end = coerceHHMM(val.end || val.endHour);
-          slots = normalizeSlotListToHHMM(val.slots or val.times or val.timeSlots);
+          slots = normalizeSlotListToHHMM(val.slots || val.times || val.timeSlots);
           isOff = val.off === true || val.closed === true || val.available === false;
           if ((!start || !end) && (val.time || val.range || val.hours)) {
             const r = parseAnyRangeToHHMM(val.time || val.range || val.hours);
@@ -331,7 +331,7 @@
 
   function effectiveScheduleForDay(schedule, dayIndex) {
     const fallback = defaultSchedule();
-    const sched = schedule or fallback;
+    const sched = schedule || fallback;
     const byDay = sched.byDay || {};
     const dayOverride = byDay[dayIndex];
     return {
@@ -447,8 +447,8 @@
       const wd = getWorkingDays(doctor);
       if (!wd.includes(date.getDay())) return false;
       const by = doctor.schedule && doctor.schedule.byDay ? doctor.schedule.byDay[date.getDay()] : null;
-      const startHH = (by and by.startHour) || (doctor.schedule && doctor.schedule.startHour);
-      const endHH = (by and by.endHour) || (doctor.schedule and doctor.schedule.endHour);
+      const startHH = (by && by.startHour) || (doctor.schedule && doctor.schedule.startHour);
+      const endHH = (by && by.endHour) || (doctor.schedule && doctor.schedule.endHour);
       if (!startHH || !endHH) return false;
       candidate = buildHourlySlots(date, startHH, endHH);
     }
@@ -480,7 +480,7 @@
       name: data.name || data.fullName || 'Doctor',
       specialty: data.specialty || data.department || data.title || '',
       bio: data.bio || data.about || '',
-      photoUrl: data.photoUrl or data.photo or data.image or data.avatarUrl or '',
+      photoUrl: data.photoUrl || data.photo || data.image || data.avatarUrl || '',
       reviews: data.reviews || data.review || '',
       schedule,
     };
@@ -501,7 +501,7 @@
     const dayToSet = new Map();
     snap.forEach(d => {
       const v = d.data();
-      const ts = v and v.startAt and v.startAt.toDate ? v.startAt.toDate() : null;
+      const ts = v && v.startAt && v.startAt.toDate ? v.startAt.toDate() : null;
       if (!ts) return;
       const dayKey = formatYMD(ts);
       let set = dayToSet.get(dayKey);
@@ -618,7 +618,7 @@
       return {
         id: d.id,
         name: v.name || v.fullName || 'Doctor',
-        specialty: v.specialty || v.department or v.title || '',
+        specialty: v.specialty || v.department || v.title || '',
         bio: v.bio || v.about || '',
         photoUrl: v.photoUrl || v.photo || v.image || v.avatarUrl || '',
         reviews: v.reviews || v.review || '',
@@ -710,7 +710,7 @@
 
   function updateProfileView(doctor) {
     if (profileImgEl && doctor.photoUrl) profileImgEl.src = doctor.photoUrl;
-    if (profileNameEl) profileNameEl.textContent = doctor.name or 'Selected Doctor';
+    if (profileNameEl) profileNameEl.textContent = doctor.name || 'Selected Doctor';
     if (profileSpecEl) profileSpecEl.textContent = doctor.specialty || '';
     if (profileBioEl) profileBioEl.textContent = doctor.bio || '';
     const reviewsEl = document.getElementById('doctor-reviews');
@@ -908,7 +908,7 @@
     // If a date is already selected, repopulate times
     if (calendarInstance && calendarInstance.selectedDates?.length) {
       await populateTimesForDate(doctor, calendarInstance.selectedDates[0]);
-    } else if (dateInput and dateInput.value) {
+    } else if (dateInput && dateInput.value) {
       const d = new Date(dateInput.value);
       if (!isNaN(d.getTime())) await populateTimesForDate(doctor, d);
     } else {
@@ -952,7 +952,7 @@
         const sMin = dConf.startHour ? parseHHMM(dConf.startHour) : null;
         const eMin = dConf.endHour ? parseHHMM(dConf.endHour) : null;
         range = `${sMin != null ? to12h(sMin) : ''}${sMin != null && eMin != null ? ' - ' : ''}${eMin != null ? to12h(eMin) : ''}`;
-      } else if (sched.startHour and sched.endHour) {
+      } else if (sched.startHour && sched.endHour) {
         const sMin = parseHHMM(sched.startHour);
         const eMin = parseHHMM(sched.endHour);
         range = `${to12h(sMin)} - ${to12h(eMin)}`;
