@@ -35,6 +35,27 @@
       const reasonEl = document.getElementById('reason');
       const hiddenDoctorEl = document.getElementById('doctorIdHidden');
       const doctorNameInput = document.getElementById('doctorInput');
+      const loadingEl = form.querySelector('.loading');
+      const errorEl = form.querySelector('.error-message');
+      const sentEl = form.querySelector('.sent-message');
+      const submitBtn = form.querySelector('button[type="submit"]');
+
+      // UI helpers
+      function setLoading(on) {
+        if (loadingEl) loadingEl.style.display = on ? '' : 'none';
+        if (submitBtn) submitBtn.disabled = !!on;
+      }
+      function showError(msg) {
+        if (errorEl) errorEl.textContent = msg || 'Something went wrong.';
+      }
+      function showSuccess(msg) {
+        if (sentEl) { sentEl.textContent = msg || 'Your appointment request has been sent successfully.'; sentEl.style.display = ''; }
+      }
+
+      // Reset UI state
+      if (errorEl) errorEl.textContent = '';
+      if (sentEl) sentEl.style.display = 'none';
+      setLoading(true);
 
       // Resolve doctorId and doctorName at submit time
       let doctorId = urlDoctorId || (hiddenDoctorEl?.value || '').trim();
@@ -52,7 +73,8 @@
       }
 
       if (!doctorId) {
-        alert('Please select a doctor first.');
+        setLoading(false);
+        showError('Please select a doctor first.');
         return;
       }
 
@@ -72,7 +94,8 @@
         slotDate = parse12hToDate(dateInput.value, timeSelect.value);
       }
       if (!slotDate || isNaN(slotDate.getTime())) {
-        alert('Please select a valid date and time.');
+        setLoading(false);
+        showError('Please select a valid date and time.');
         return;
       }
 
@@ -100,9 +123,12 @@
           }
           tx.set(apptRef, appointmentData);
         });
-        alert('Appointment request sent!');
+        showSuccess('Your appointment request has been sent successfully.');
       } catch (err) {
-        alert(err && err.message ? err.message : 'Failed to book appointment. Please try again.');
+        console.error('[appointment] booking error:', err);
+        showError(err && err.message ? err.message : 'Failed to book appointment. Please try again.');
+      } finally {
+        setLoading(false);
       }
     });
   });
