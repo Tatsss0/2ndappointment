@@ -42,14 +42,60 @@
       if (submitBtn) submitBtn.disabled = !!on;
     }
 
+    function showToast(message, type = 'success') {
+      try {
+        const hasBootstrap = !!(window.bootstrap && window.bootstrap.Toast);
+        let container = document.getElementById('globalToastContainer');
+        if (!container) {
+          container = document.createElement('div');
+          container.id = 'globalToastContainer';
+          container.className = 'toast-container position-fixed top-0 end-0 p-3';
+          container.style.zIndex = '1080';
+          document.body.appendChild(container);
+        }
+        const toast = document.createElement('div');
+        const bgClass = (type === 'danger' || type === 'error')
+          ? 'text-bg-danger bg-danger text-white'
+          : (type === 'warning')
+            ? 'text-bg-warning bg-warning'
+            : (type === 'info')
+              ? 'text-bg-info bg-info'
+              : 'text-bg-success bg-success text-white';
+        toast.className = `toast align-items-center ${bgClass} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        toast.innerHTML = `
+          <div class="d-flex">
+            <div class="toast-body">${message || ''}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>
+        `;
+        container.appendChild(toast);
+        if (hasBootstrap) {
+          const t = new window.bootstrap.Toast(toast, { delay: 4000 });
+          t.show();
+          toast.addEventListener('hidden.bs.toast', () => { toast.remove(); });
+        } else {
+          // Fallback simple show/hide if Bootstrap JS not present
+          setTimeout(() => toast.classList.add('show'));
+          setTimeout(() => { if (toast && toast.parentNode) toast.parentNode.removeChild(toast); }, 4500);
+        }
+      } catch (_) {
+        try { alert(message); } catch (_) {}
+      }
+    }
+
     function showError(form, msg) {
       const errorEl = form.querySelector('.error-message');
-      if (errorEl) errorEl.textContent = msg || 'Something went wrong.';
+      if (errorEl) { errorEl.textContent = msg || 'Something went wrong.'; errorEl.style.display = ''; }
+      showToast(msg || 'Something went wrong.', 'danger');
     }
 
     function showSuccess(form, msg) {
       const sentEl = form.querySelector('.sent-message');
       if (sentEl) { sentEl.textContent = msg || 'Your appointment request has been sent successfully.'; sentEl.style.display = ''; }
+      showToast(msg || 'Your appointment request has been sent successfully.', 'success');
     }
 
     function resetAlerts(form) {
