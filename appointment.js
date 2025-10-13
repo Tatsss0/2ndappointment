@@ -103,6 +103,22 @@
       }
     }
 
+    async function resolvePatientFullName(user, db) {
+      // Prefer profile doc's first/last name; then displayName; then email
+      try {
+        const uDoc = await db.collection('users').doc(user.uid).get();
+        if (uDoc.exists) {
+          const u = uDoc.data() || {};
+          const first = (u.firstName || u.givenName || '').toString().trim();
+          const last = (u.lastName || u.familyName || '').toString().trim();
+          const composed = (first || last) ? `${first} ${last}`.trim() : '';
+          if (composed) return composed;
+          if (u.fullName && String(u.fullName).trim()) return String(u.fullName).trim();
+        }
+      } catch (_) { /* ignore */ }
+      return (user.displayName && user.displayName.trim()) || '';
+    }
+
     function showError(form, msg) {
       const errorEl = form.querySelector('.error-message');
       if (errorEl) { errorEl.textContent = msg || 'Something went wrong.'; errorEl.style.display = ''; }
@@ -185,11 +201,13 @@
         // Deterministic doc id to de-duplicate
         const docId = `${doctorId}_${slotDate.getTime()}`;
         const apptRef = db.collection('appointments').doc(docId);
+        const patientFullName = (await resolvePatientFullName(user, db)) || user.email || 'Patient';
+
         const appointmentData = {
           doctorId,
           doctorName: doctorName || '',
           patientId: user.uid,
-          patientName: user.displayName || user.email || 'Patient',
+          patientName: patientFullName,
           startAt: slotTS,
           status: 'pending',
           reason: reasonEl ? (reasonEl.value || '').trim() : '',
