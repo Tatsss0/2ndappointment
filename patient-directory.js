@@ -1001,6 +1001,7 @@
           const items = snap.docs
             .map(d => ({ id: d.id, ...d.data() }))
             .filter(v => v && v.startAt && v.startAt.toDate && v.startAt.toDate() >= now)
+            .filter(v => (String(v.status || '').toLowerCase() !== 'done' && String(v.status || '').toLowerCase() !== 'completed'))
             .sort((a, b) => a.startAt.toDate() - b.startAt.toDate());
           return items;
         }
@@ -1008,6 +1009,12 @@
         function fmt(ts) {
           try { return ts.toDate().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); }
           catch { return ''; }
+        }
+
+        function resolveMeetingUrl(v) {
+          return (
+            v.meetingUrl || v.meetingLink || v.videoUrl || v.videoLink || v.link || v.roomUrl || v.roomLink || ''
+          );
         }
 
         async function renderAppointments() {
@@ -1022,11 +1029,14 @@
           }
           items.forEach(v => {
             const row = document.createElement('tr');
-            const statusBadge = `<span class="badge rounded-pill bg-${v.status === 'confirmed' ? 'success' : v.status === 'cancelled' ? 'secondary' : 'warning'}">${(v.status || 'pending')}</span>`;
+            const joinUrl = resolveMeetingUrl(v);
+            const actionHtml = joinUrl
+              ? `<a href="${joinUrl}" class="btn btn-success btn-sm" target="_blank" rel="noopener">Join Meeting</a>`
+              : '<span class="text-muted">No link</span>';
             row.innerHTML = `
               <td>${v.doctorName || 'Doctor'}</td>
               <td>${v.startAt ? fmt(v.startAt) : ''}</td>
-              <td>${statusBadge}</td>
+              <td>${actionHtml}</td>
             `;
             tableBody.appendChild(row);
           });
