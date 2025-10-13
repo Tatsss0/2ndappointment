@@ -1,34 +1,36 @@
+// firebase-init.js
 (function () {
-  'use strict';
+  if (window.firebaseInitialized) return;
 
-  // Initialize Firebase using compat SDK already loaded via CDN on the page
-  if (typeof window === 'undefined') return;
-  if (typeof firebase === 'undefined') {
-    console.error('[firebase-init] Firebase SDK not loaded. Include firebase-app-compat.js first.');
-    return;
-  }
+  // Keep your config here (don’t remove)
+  const firebaseConfig = {
+    apiKey: "AIzaSyCwCjmcUTTz8S34svqAxmhHmhO8QNnz5t8",
+    authDomain: "t-echmed.firebaseapp.com",
+    databaseURL: "https://t-echmed-default-rtdb.firebaseio.com",
+    projectId: "t-echmed",
+    storageBucket: "t-echmed.appspot.com",
+    messagingSenderId: "290352510024",
+    appId: "1:290352510024:web:c9e2fbdec8d36f35ca547d"
+  };
 
-  if (firebase.apps && firebase.apps.length > 0) {
-    // Already initialized elsewhere
-    return;
-  }
+  const app = (firebase.apps && firebase.apps.length)
+    ? firebase.app()
+    : firebase.initializeApp(firebaseConfig);
 
-  // Expect config to be provided globally before this file is loaded
-  // e.g., window.__FIREBASE_CONFIG__ = { apiKey: '...', projectId: '...', ... }
-  const config = window.__FIREBASE_CONFIG__ || window.FIREBASE_CONFIG || null;
-  if (!config) {
-    console.error('[firebase-init] Missing Firebase config. Provide window.__FIREBASE_CONFIG__ before including firebase-init.js');
-    return;
-  }
+  // Expose compat instances
+  window.auth = app.auth();
+  window.db = app.firestore();
+  try { window.storage = app.storage(); } catch { window.storage = null; }
 
+  // Apply Firestore settings once; use merge to avoid overriding host/emulator
   try {
-    firebase.initializeApp(config);
-    // Optional: tweak Firestore settings if needed
-    // const db = firebase.firestore();
-    // db.settings({ ignoreUndefinedProperties: true });
-  } catch (err) {
-    if (!(err && /already exists/i.test(String(err.message || '')))) {
-      console.error('[firebase-init] Initialization error:', err);
+    if (!window.__dbSettingsApplied && window.db?.settings) {
+      window.db.settings({ ignoreUndefinedProperties: true, merge: true });
+      window.__dbSettingsApplied = true;
     }
+  } catch (e) {
+    console.warn('db.settings skipped:', e);
   }
+
+  window.firebaseInitialized = true;
 })();
