@@ -208,7 +208,8 @@
 
           const nowMs = Date.now();
           const items = [];
-          snap.forEach(doc => { items.push({ id: doc.id, ...doc.data() }); });
+          // Preserve Firestore doc ID under a collision-safe key
+          snap.forEach(doc => { items.push({ ...doc.data(), docId: doc.id }); });
 
           items.sort((a,b)=>{
             const at = toDateObj(a.startAt)?.getTime() ?? 0;
@@ -240,7 +241,7 @@
             if (!isPast) {
               const actions = item.querySelector('.d-flex.gap-2');
               if (actions) {
-                const doneBtn = el(`<button class="btn btn-sm btn-outline-success mark-done-btn" data-id="${a.id}" ${statusLower === 'done' ? 'disabled' : ''}>
+                const doneBtn = el(`<button class=\"btn btn-sm btn-outline-success mark-done-btn\" data-id=\"${a.docId}\" ${statusLower === 'done' ? 'disabled' : ''}>
                   <i class="bi bi-check-lg"></i> Done
                 </button>`);
                 actions.appendChild(doneBtn);
@@ -250,7 +251,7 @@
                   const original = doneBtn.innerHTML;
                   doneBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
                   try {
-                    await db.collection('appointments').doc(String(a.id)).update({
+                    await db.collection('appointments').doc(String(a.docId)).update({
                       status: 'done',
                       completedAt: firebase.firestore.FieldValue.serverTimestamp(),
                       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
