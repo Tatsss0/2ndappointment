@@ -970,6 +970,81 @@
           if (!isNaN(d.getTime())) await populateTimesForDate(selectedDoc, d);
         });
       }
+
+      // Wire topbar "Appointments" button to show patient's booked appointments
+      (function wireAppointmentsTopbar() {
+        const apptBtn = document.getElementById('appointmentBtn');
+        const modalEl = document.getElementById('appointmentModal');
+        const tableBody = document.querySelector('#appointmentTable tbody');
+        if (!apptBtn || !modalEl || !tableBody) return;
+        // Change table header to Doctor for patient POV if present
+        const thFirst = document.querySelector('#appointmentTable thead th:first-child');
+        if (thFirst) thFirst.textContent = 'Doctor';
+
+        async function fetchPatientAppointments() {
+          const user = (firebase.auth && firebase.auth().currentUser) || null;
+          if (!user) { window.location.replace('login.php'); return []; }
+          const now = new Date();
+          let snap = null;
+          try {
+            snap = await db.collection('appointments')
+              .where('patientId', '==', user.uid)
+              .where('startAt', '>=', firebase.firestore.Timestamp.fromDate(new Date(now.getTime())))
+              .orderBy('startAt', 'asc')
+              .get();
+          } catch (_) {
+            // Fallback without orderBy to avoid composite index; sort client-side
+            snap = await db.collection('appointments')
+              .where('patientId', '==', user.uid)
+              .get();
+          }
+          const items = snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(v => v && v.startAt && v.startAt.toDate && v.startAt.toDate() >= now)
+            .sort((a, b) => a.startAt.toDate() - b.startAt.toDate());
+          return items;
+        }
+
+        function fmt(ts) {
+          try { return ts.toDate().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); }
+          catch { return ''; }
+        }
+
+        async function renderAppointments() {
+          tableBody.innerHTML = '';
+          let items = [];
+          try { items = await fetchPatientAppointments(); } catch (_) { items = []; }
+          if (!items.length) {
+            const row = document.createElement('tr');
+            row.innerHTML = '<td colspan="3" class="text-muted">No upcoming appointments</td>';
+            tableBody.appendChild(row);
+            return;
+          }
+          items.forEach(v => {
+            const row = document.createElement('tr');
+            const statusBadge = `<span class="badge rounded-pill bg-${v.status === 'confirmed' ? 'success' : v.status === 'cancelled' ? 'secondary' : 'warning'}">${(v.status || 'pending')}</span>`;
+            row.innerHTML = `
+              <td>${v.doctorName || 'Doctor'}</td>
+              <td>${v.startAt ? fmt(v.startAt) : ''}</td>
+              <td>${statusBadge}</td>
+            `;
+            tableBody.appendChild(row);
+          });
+        }
+
+        apptBtn.addEventListener('click', async () => {
+          await renderAppointments();
+          try {
+            if (window.bootstrap && window.bootstrap.Modal) {
+              const m = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+              m.show();
+            } else {
+              // Bootstrap not available; fallback display
+              modalEl.style.display = 'block';
+            }
+          } catch (_) { /* ignore */ }
+        });
+      })();
     } catch (err) {
       console.error('Failed to initialize patient directory:', err);
     }
