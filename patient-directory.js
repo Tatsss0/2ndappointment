@@ -317,6 +317,29 @@
     return buildHourlySlots(date, eff.startHour, eff.endHour);
   }
 
+  async function buildSlotsForDateWithDaily(doctor, date) {
+    const daily = await getDailyOverride(doctor.id, date);
+    const slots = [];
+    if (daily) {
+      if (daily.off) return slots;
+      if (daily.slots && daily.slots.length) {
+        for (const hhmm of daily.slots) {
+          const mins = parseHHMM(hhmm);
+          if (mins == null) continue;
+          const slotDate = new Date(date);
+          slotDate.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
+          slots.push(slotDate);
+        }
+        return slots.sort((a,b) => a - b);
+      }
+      if (daily.startHour && daily.endHour) {
+        return buildHourlySlots(date, daily.startHour, daily.endHour);
+      }
+      return slots;
+    }
+    return buildSlotsForDate(date, doctor.schedule || {});
+  }
+
   async function prefetchMonthBookings(doctorId, year, monthIndex) {
     const first = new Date(year, monthIndex, 1, 0, 0, 0, 0);
     const last = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
@@ -609,6 +632,49 @@
       disable: [
         function (d) { return !hasOpenSlotsFromCache(doctor, d); },
       ],
+      onDayCreate: async function (dObj, dStr, fp, dayElem) {
+        try {
+          const d = dayElem.dateObj || (dStr ? new Date(`${dStr}T00:00:00`) : null);
+          if (!d || isNaN(d.getTime())) return;
+          dayElem.classList.remove('available', 'booked', 'semi-disabled', 'not-available');
+
+          // Flatpickr may already disable this day; mark muted
+          if (dayElem.classList.contains('flatpickr-disabled') || dayElem.classList.contains('disabled')) {
+            dayElem.classList.add('semi-disabled');
+            return;
+          }
+
+          const mk = `${doctor.id}|${monthKey(d)}`;
+          const map = monthlyBookingsCache.get(mk);
+          const bookedSet = map ? (map.get(formatYMD(d)) || new Set()) : new Set();
+
+          const allSlots = await buildSlotsForDateWithDaily(doctor, d);
+          const today = new Date();
+          const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+          const dateStart = new Date(d); dateStart.setHours(0,0,0,0);
+
+          if (allSlots.length === 0) {
+            dayElem.classList.add('semi-disabled');
+            return;
+          }
+          if (dateStart < todayStart) {
+            dayElem.classList.add('semi-disabled');
+            return;
+          }
+
+          const effectiveSlots = isSameDay(d, today) ? filterPastSlots(allSlots) : allSlots;
+          if (effectiveSlots.length === 0) {
+            dayElem.classList.add('semi-disabled');
+            return;
+          }
+          const open = effectiveSlots.filter(s => !bookedSet.has(s.getTime()));
+          if (open.length <= 0) {
+            dayElem.classList.add('booked');
+          } else {
+            dayElem.classList.add('available');
+          }
+        } catch (_) { /* ignore */ }
+      },
       onReady: async function (selectedDates, dateStr, fp) {
         const currentFirst = new Date(fp.currentYear, fp.currentMonth, 1);
         await Promise.all([
@@ -676,17 +742,22 @@
 
     timeSelect.innerHTML = '<option value="">Loading...</option>';
     try {
-      const eff = effectiveScheduleForDay(doctor.schedule || {}, date.getDay());
-      let baseSlots = [];
-      if (eff.slotList && eff.slotList.length) {
-        baseSlots = eff.slotList.map(hhmm => {
-          const mins = parseHHMM(hhmm);
-          const d = new Date(date);
-          d.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
-          return d;
-        });
-      } else if (eff.startHour && eff.endHour) {
-        baseSlots = buildHourlySlots(date, eff.startHour, eff.endHour);
+      // Build slots considering daily overrides (off, special slots, or custom hours)
+      let baseSlots = await buildSlotsForDateWithDaily(doctor, date);
+      if (!baseSlots || !baseSlots.length) {
+        const eff = effectiveScheduleForDay(doctor.schedule || {}, date.getDay());
+        if (eff.slotList && eff.slotList.length) {
+          baseSlots = eff.slotList.map(hhmm => {
+            const mins = parseHHMM(hhmm);
+            const d = new Date(date);
+            d.setHours(Math.floor(mins / 60), mins % 60, 0, 0);
+            return d;
+          });
+        } else if (eff.startHour && eff.endHour) {
+          baseSlots = buildHourlySlots(date, eff.startHour, eff.endHour);
+        } else {
+          baseSlots = [];
+        }
       }
 
       const today = new Date();
@@ -695,15 +766,24 @@
       const booked = await fetchBookedForDay(doctor.id, date);
       const available = slots.filter(d => !booked.has(d.getTime()));
 
+      // Render options with color coding via classes
       timeSelect.innerHTML = '<option value="">Select Time</option>';
-      available.forEach(d => {
+      // Build a map for quick lookup
+      const availableMs = new Set(available.map(d => d.getTime()));
+      const seen = new Set();
+      [...slots].sort((a,b) => a - b).forEach(d => {
         const hours = d.getHours();
         const minutes = d.getMinutes();
         const valueMinutes = hours * 60 + minutes;
         const label = to12(valueMinutes);
+        if (seen.has(label)) return; // dedupe if any
+        seen.add(label);
         const opt = document.createElement('option');
         opt.value = label;
         opt.textContent = label;
+        const isOpen = availableMs.has(d.getTime());
+        opt.disabled = !isOpen;
+        opt.className = isOpen ? 'slot-available' : 'slot-booked';
         timeSelect.appendChild(opt);
       });
 
@@ -713,7 +793,9 @@
         opt.textContent = 'No times available';
         timeSelect.appendChild(opt);
       } else {
-        timeSelect.selectedIndex = 1;
+        // Select first enabled option
+        const firstEnabled = [...timeSelect.options].find(o => o.value && !o.disabled);
+        if (firstEnabled) firstEnabled.selected = true;
       }
     } catch (e) {
       timeSelect.innerHTML = '<option value="">No times available</option>';
@@ -769,7 +851,7 @@
       }
       html += `
         <div class="col-6 col-md-4">
-          <div class="border rounded p-2 h-100">
+          <div class="border rounded p-2 h-100 ${range ? 'bg-available-day' : 'bg-unavailable-day'}">
             <div class="fw-semibold">${DAY_NAMES[i]}</div>
             <div class="small">${range || '—'}</div>
           </div>
@@ -824,6 +906,22 @@
 
   async function bootstrap() {
     try {
+      // Inject minimal styles for calendar/time color coding if not already present
+      (function ensureBookingStyles() {
+        if (document.getElementById('bookingColorStyles')) return;
+        const style = document.createElement('style');
+        style.id = 'bookingColorStyles';
+        style.textContent = `
+          .flatpickr-day.semi-disabled{ opacity:.3; pointer-events:none; }
+          .flatpickr-day.available{ background:#e0ffe0; border-radius:50%; }
+          .flatpickr-day.booked{ background:#ffcccc; border-radius:50%; pointer-events:none; }
+          .flatpickr-day.selected{ background:#87cefa!important; color:#000!important; border-radius:50%; }
+          select#timeSelect option.slot-available { color:#198754; font-weight:500; }
+          select#timeSelect option.slot-booked { color:#dc3545; }
+        `;
+        document.head.appendChild(style);
+      })();
+
       await waitUntil(() => window.firebase && firebase.apps && firebase.apps.length > 0);
       db = firebase.firestore();
 
