@@ -29,9 +29,26 @@
   }
 
   async function bootstrap() {
-    await waitUntil(() => window.firebase && firebase.apps && firebase.apps.length > 0).catch(() => {});
-    const auth = firebase.auth();
-    const db = firebase.firestore();
+    const form = document.getElementById('appointment-form');
+    if (!form) return;
+
+    let auth = null;
+    let db = null;
+    try {
+      await waitUntil(() => window.firebase && firebase.apps && firebase.apps.length > 0);
+      auth = firebase.auth();
+      db = firebase.firestore();
+    } catch (e) {
+      // Attach a minimal handler to inform the user while Firebase loads (or failed)
+      form.addEventListener('submit', (e2) => {
+        e2.preventDefault();
+        const msg = 'App is still initializing. Please refresh and try again.';
+        const errorEl = form.querySelector('.error-message');
+        if (errorEl) { errorEl.textContent = msg; errorEl.style.display = ''; }
+        try { alert(msg); } catch (_) {}
+      }, { once: true });
+      return;
+    }
 
     const urlDoctorId = new URL(window.location.href).searchParams.get('doctorId');
 
@@ -105,20 +122,11 @@
       if (sentEl) sentEl.style.display = 'none';
     }
 
-    firebase.auth().onAuthStateChanged((user) => {
-      const form = document.getElementById('appointment-form');
-      if (!form) return;
-
-      if (!user) {
-        form.addEventListener('submit', (e) => {
-          e.preventDefault();
-          window.location.replace('login.php');
-        });
-        return;
-      }
-
-      form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        if (!auth || !db) { showError(form, 'App not ready. Please refresh and try again.'); return; }
+        const user = auth.currentUser || null;
+        if (!user) { window.location.replace('login.php'); return; }
 
         const slotInput = document.getElementById('slot'); // optional hidden field
         const dateInput = document.getElementById('dateInput');
@@ -204,7 +212,6 @@
           setLoading(form, false);
         }
       });
-    });
   }
 
   if (document.readyState === 'loading') {
