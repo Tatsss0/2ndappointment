@@ -794,7 +794,8 @@
         return;
       }
 
-      const bookBtn = e.target.closest('.btn-appointment');
+      // Only intercept directory anchor buttons, not the submit button in the form
+      const bookBtn = e.target.closest('a.btn-appointment');
       if (bookBtn) {
         e.preventDefault();
         const holder = bookBtn.closest('[data-doctor-id]');
