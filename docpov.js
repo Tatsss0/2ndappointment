@@ -12,7 +12,7 @@
   function toDateObj(ts){ return ts && ts.toDate ? ts.toDate() : (ts ? new Date(ts) : null); }
   function statusBadge(status){
     const s = (status || 'pending').toLowerCase();
-    const cls = s === 'confirmed' ? 'bg-success'
+    const cls = s === 'confirmed' || s === 'done' ? 'bg-success'
       : (s === 'cancelled' || s === 'rejected') ? 'bg-danger'
       : s === 'rescheduled' ? 'bg-warning text-dark'
       : 'bg-secondary';
@@ -218,7 +218,9 @@
 
           for (const a of items) {
             const when = toDateObj(a.startAt);
-            const isPast = when ? when.getTime() < nowMs : false;
+            const statusLower = (a.status || '').toLowerCase();
+            const isDone = statusLower === 'done';
+            const isPast = isDone || (when ? when.getTime() < nowMs : false);
             const roomLink = a.roomId ? `./index.html?room=${encodeURIComponent(a.roomId)}` : './index.html';
 
             const item = el(`<div class="list-group-item d-flex justify-content-between align-items-center appt-card">
