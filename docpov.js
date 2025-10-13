@@ -208,7 +208,7 @@
 
           const nowMs = Date.now();
           const items = [];
-          snap.forEach(doc => { items.push(doc.data()); });
+          snap.forEach(doc => { items.push({ id: doc.id, ...doc.data() }); });
 
           items.sort((a,b)=>{
             const at = toDateObj(a.startAt)?.getTime() ?? 0;
@@ -235,6 +235,36 @@
                 <a href="${roomLink}" class="btn btn-sm btn-primary">${a.roomId ? 'Join call' : 'Open meeting'}</a>
               </div>
             </div>`);
+
+            // Add Done button for upcoming appointments
+            if (!isPast) {
+              const actions = item.querySelector('.d-flex.gap-2');
+              if (actions) {
+                const doneBtn = el(`<button class="btn btn-sm btn-outline-success mark-done-btn" data-id="${a.id}" ${statusLower === 'done' ? 'disabled' : ''}>
+                  <i class="bi bi-check-lg"></i> Done
+                </button>`);
+                actions.appendChild(doneBtn);
+                doneBtn.addEventListener('click', async ()=>{
+                  if (doneBtn.disabled) return;
+                  doneBtn.disabled = true;
+                  const original = doneBtn.innerHTML;
+                  doneBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+                  try {
+                    await db.collection('appointments').doc(String(a.id)).update({
+                      status: 'done',
+                      completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    toast('Appointment marked as done');
+                  } catch (err) {
+                    console.error('mark done failed', err);
+                    doneBtn.disabled = false;
+                    doneBtn.innerHTML = original;
+                    toast('Failed to mark as done: ' + (err?.message || ''));
+                  }
+                });
+              }
+            }
 
             (isPast ? listPast : listUpcoming).appendChild(item);
           }
