@@ -630,7 +630,9 @@
       inline: true,
       disableMobile: true,
       disable: [
-        function (d) { return !hasOpenSlotsFromCache(doctor, d); },
+        // Do NOT fully disable days, so we can display color coding even for fully booked/non-working
+        // Returning false keeps all days clickable; selection will still be constrained by no options
+        function () { return false; },
       ],
       onDayCreate: async function (dObj, dStr, fp, dayElem) {
         try {
@@ -648,11 +650,11 @@
           const dateStart = new Date(d); dateStart.setHours(0,0,0,0);
 
           if (allSlots.length === 0) {
-            dayElem.classList.add('semi-disabled');
+            dayElem.classList.add('non-working');
             return;
           }
           if (dateStart < todayStart) {
-            dayElem.classList.add('semi-disabled');
+            dayElem.classList.add('non-working');
             return;
           }
 
@@ -906,9 +908,9 @@
         const style = document.createElement('style');
         style.id = 'bookingColorStyles';
         style.textContent = `
-          .flatpickr-day.semi-disabled{ opacity:.3; pointer-events:none; }
-          .flatpickr-day.available{ background:#e0ffe0; border-radius:50%; }
-          .flatpickr-day.booked{ background:#ffcccc; border-radius:50%; pointer-events:none; }
+          .flatpickr-day.available{ background:#e6ffed; color:#093; border-radius:50%; }
+          .flatpickr-day.booked{ background:#ffe0e0; color:#a40000; border-radius:50%; }
+          .flatpickr-day.non-working{ background:#f1f3f5; color:#6c757d; border-radius:50%; }
           .flatpickr-day.selected{ background:#87cefa!important; color:#000!important; border-radius:50%; }
           select#timeSelect option.slot-available { color:#198754; font-weight:500; }
           select#timeSelect option.slot-booked { color:#dc3545; }
