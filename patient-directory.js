@@ -638,12 +638,6 @@
           if (!d || isNaN(d.getTime())) return;
           dayElem.classList.remove('available', 'booked', 'semi-disabled', 'not-available');
 
-          // Flatpickr may already disable this day; mark muted
-          if (dayElem.classList.contains('flatpickr-disabled') || dayElem.classList.contains('disabled')) {
-            dayElem.classList.add('semi-disabled');
-            return;
-          }
-
           const mk = `${doctor.id}|${monthKey(d)}`;
           const map = monthlyBookingsCache.get(mk);
           const bookedSet = map ? (map.get(formatYMD(d)) || new Set()) : new Set();
