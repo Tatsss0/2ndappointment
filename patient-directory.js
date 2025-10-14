@@ -660,7 +660,7 @@
 
           const effectiveSlots = isSameDay(d, today) ? filterPastSlots(allSlots) : allSlots;
           if (effectiveSlots.length === 0) {
-            dayElem.classList.add('semi-disabled');
+            dayElem.classList.add('non-working');
             return;
           }
           const open = effectiveSlots.filter(s => !bookedSet.has(s.getTime()));
